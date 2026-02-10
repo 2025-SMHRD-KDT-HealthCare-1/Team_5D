@@ -1,10 +1,41 @@
 ﻿import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react-swc';
+import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 
 export default defineConfig({
   root: path.resolve(__dirname, 'guardian'),
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      strategies: 'generateSW',
+      devOptions: {
+        enabled: false,
+      },
+      manifest: {
+        name: 'SOIN Guardian',
+        short_name: 'SOIN',
+        start_url: '/guardian',
+        scope: '/guardian/',
+        display: 'standalone',
+        theme_color: '#189877',
+        background_color: '#ffffff',
+        icons: [
+          {
+            src: '/guardian/icons/icon-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+          },
+          {
+            src: '/guardian/icons/icon-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+          },
+        ],
+      },
+    }),
+  ],
   resolve: {
     extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
     alias: {

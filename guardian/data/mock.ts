@@ -21,6 +21,8 @@ export interface Target {
   age: number;
   gender: Gender;
   createdAt: string;
+  isDeleted: boolean;
+  deletedAt?: string | null;
 }
 
 export interface Device {
@@ -29,6 +31,8 @@ export interface Device {
   status: DeviceStatus;
   lastSeenAt: string;
   installedAt: string;
+  isDeleted: boolean;
+  deletedAt?: string | null;
 }
 
 export interface Alert {
@@ -99,6 +103,8 @@ export const targets: Target[] = [
     age: 78,
     gender: 'F',
     createdAt: '2025-12-01T10:00:00+09:00',
+    isDeleted: false,
+    deletedAt: null,
   },
   {
     targetId: 'target-002',
@@ -107,6 +113,8 @@ export const targets: Target[] = [
     age: 82,
     gender: 'M',
     createdAt: '2025-12-10T09:20:00+09:00',
+    isDeleted: false,
+    deletedAt: null,
   },
   {
     targetId: 'target-003',
@@ -115,6 +123,8 @@ export const targets: Target[] = [
     age: 85,
     gender: 'F',
     createdAt: '2026-01-05T14:40:00+09:00',
+    isDeleted: false,
+    deletedAt: null,
   },
 ];
 
@@ -125,6 +135,8 @@ export const devices: Device[] = [
     status: 'ONLINE',
     lastSeenAt: '2026-02-05T10:02:00+09:00',
     installedAt: '2025-12-05T11:00:00+09:00',
+    isDeleted: false,
+    deletedAt: null,
   },
   {
     deviceId: 'device-002',
@@ -132,6 +144,8 @@ export const devices: Device[] = [
     status: 'ONLINE',
     lastSeenAt: '2026-02-05T09:40:00+09:00',
     installedAt: '2025-12-12T15:30:00+09:00',
+    isDeleted: false,
+    deletedAt: null,
   },
   {
     deviceId: 'device-003',
@@ -139,6 +153,8 @@ export const devices: Device[] = [
     status: 'OFFLINE',
     lastSeenAt: '2026-02-04T23:10:00+09:00',
     installedAt: '2026-01-10T13:20:00+09:00',
+    isDeleted: false,
+    deletedAt: null,
   },
 ];
 

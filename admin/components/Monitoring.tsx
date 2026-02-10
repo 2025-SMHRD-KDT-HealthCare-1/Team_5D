@@ -86,6 +86,8 @@ type TargetProfile = Target & {
   guardianLinked: boolean;
   riskCriteria: string;
   eventHistory: TargetEventHistory[];
+  isDeleted: boolean;
+  deletedAt?: string | null;
 };
 
 interface Device {
@@ -117,6 +119,8 @@ type DeviceView = Device & {
   eventStats: DeviceEventStat[];
   restartRequestedAt?: string | null;
   isRegistered: boolean;
+  isDeleted: boolean;
+  deletedAt?: string | null;
 };
 
 const nowIso = () => new Date().toISOString();
@@ -181,6 +185,8 @@ const MOCK_TARGETS: TargetProfile[] = [
       { id: 'ALT-001', type: 'FALL', at: '2024-02-04T10:23:45Z', status: 'UNCONFIRMED' },
       { id: 'ALT-003', type: 'INACTIVITY', at: '2024-02-04T08:30:00Z', status: 'RESOLVED' },
     ],
+    isDeleted: false,
+    deletedAt: null,
   },
   {
     targetId: 'TGT-2041',
@@ -202,6 +208,8 @@ const MOCK_TARGETS: TargetProfile[] = [
     guardianLinked: true,
     riskCriteria: '배회 이벤트 3회 이상 시 주의 필요',
     eventHistory: [{ id: 'ALT-002', type: 'WANDER', at: '2024-02-04T09:15:12Z', status: 'CONFIRMED' }],
+    isDeleted: false,
+    deletedAt: null,
   },
 ];
 
@@ -225,6 +233,8 @@ const MOCK_DEVICES: DeviceView[] = [
     ],
     restartRequestedAt: null,
     isRegistered: true,
+    isDeleted: false,
+    deletedAt: null,
   },
   {
     deviceId: 'DEV-002',
@@ -248,6 +258,8 @@ const MOCK_DEVICES: DeviceView[] = [
     ],
     restartRequestedAt: null,
     isRegistered: true,
+    isDeleted: false,
+    deletedAt: null,
   },
 ];
 
@@ -612,6 +624,7 @@ const TargetsSection: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [draftName, setDraftName] = useState('');
   const [draftPhone, setDraftPhone] = useState('');
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
   const [newTargetId, setNewTargetId] = useState('');
   const [newTargetName, setNewTargetName] = useState('');
@@ -635,6 +648,19 @@ const TargetsSection: React.FC = () => {
 
   const updateTarget = (targetId: string, updater: (target: TargetProfile) => TargetProfile) => {
     setTargets((prev) => prev.map((target) => (target.targetId === targetId ? updater(target) : target)));
+  };
+
+  // Soft delete only. Records remain for audit and history.
+  const handleDeleteTarget = (targetId: string) => {
+    updateTarget(targetId, (target) => ({
+      ...target,
+      isDeleted: true,
+      deletedAt: nowIso(),
+      isActive: false,
+    }));
+    setSelectedTargetId(null);
+    setDeleteTargetId(null);
+    // NOTE: In real API, linked devices should also be soft deleted server-side.
   };
 
   const getStatusBadge = (status: string) => {
@@ -697,6 +723,8 @@ const TargetsSection: React.FC = () => {
     setNewGuardianPhone('');
     setNewAddress('');
   };
+
+  const visibleTargets = targets.filter((target) => !target.isDeleted);
 
   return (
     <div className="space-y-6">
@@ -809,7 +837,7 @@ const TargetsSection: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {targets.map((target) => (
+            {visibleTargets.map((target) => (
               <tr key={target.targetId} className="hover:bg-gray-50 transition-colors">
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
@@ -888,6 +916,12 @@ const TargetsSection: React.FC = () => {
                   {selectedTarget.guardianLinked ? <Unlink2 className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
                   {selectedTarget.guardianLinked ? '보호자 연결 해제' : '보호자 연결'}
                 </button>
+                <button
+                  onClick={() => setDeleteTargetId(selectedTarget.targetId)}
+                  className="px-3 py-2 text-sm bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100"
+                >
+                  대상자 삭제
+                </button>
               </div>
             </div>
 
@@ -945,6 +979,31 @@ const TargetsSection: React.FC = () => {
           </div>
         </div>
       )}
+
+      {deleteTargetId && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 w-full max-w-md shadow-lg">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">대상자 삭제</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              이 작업은 복구 불가합니다. 실제로는 논리 삭제로 처리됩니다.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setDeleteTargetId(null)}
+                className="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => handleDeleteTarget(deleteTargetId)}
+                className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                삭제 확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -956,6 +1015,9 @@ const DevicesSection: React.FC = () => {
   const [newDeviceId, setNewDeviceId] = useState('');
   const [newTargetId, setNewTargetId] = useState('');
   const [newTargetName, setNewTargetName] = useState('');
+  const [deleteDeviceId, setDeleteDeviceId] = useState<string | null>(null);
+  const [deleteErrorMessage, setDeleteErrorMessage] = useState('');
+  const [deleteSuccessMessage, setDeleteSuccessMessage] = useState('');
 
   const selectedDevice = devices.find((device) => device.deviceId === selectedDeviceId) || null;
 
@@ -1004,6 +1066,8 @@ const DevicesSection: React.FC = () => {
       ],
       restartRequestedAt: null,
       isRegistered: true,
+      isDeleted: false,
+      deletedAt: null,
     };
     setDevices((prev) => [newDevice, ...prev]);
     setIsRegistering(false);
@@ -1015,6 +1079,34 @@ const DevicesSection: React.FC = () => {
   const updateDevice = (deviceId: string, updater: (device: DeviceView) => DeviceView) => {
     setDevices((prev) => prev.map((device) => (device.deviceId === deviceId ? updater(device) : device)));
   };
+
+  // Soft delete only. Records remain for audit and history.
+  // Mock delete function (replace with real API later).
+  const deleteDevice = async (deviceId: string) => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    return { ok: true as const };
+  };
+
+  const handleDeleteDevice = async (deviceId: string) => {
+    setDeleteErrorMessage('');
+    setDeleteSuccessMessage('');
+    const result = await deleteDevice(deviceId);
+    if (!result.ok) {
+      setDeleteErrorMessage('장치 삭제에 실패했습니다. 다시 시도해 주세요.');
+      return;
+    }
+    updateDevice(deviceId, (device) => ({
+      ...device,
+      isDeleted: true,
+      deletedAt: nowIso(),
+      isRegistered: false,
+    }));
+    setSelectedDeviceId(null);
+    setDeleteDeviceId(null);
+    setDeleteSuccessMessage('장치가 삭제되었습니다.');
+  };
+
+  const visibleDevices = devices.filter((device) => !device.isDeleted);
 
   return (
     <div className="space-y-6">
@@ -1067,6 +1159,17 @@ const DevicesSection: React.FC = () => {
         </div>
       )}
 
+      {deleteSuccessMessage && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+          {deleteSuccessMessage}
+        </div>
+      )}
+      {deleteErrorMessage && (
+        <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {deleteErrorMessage}
+        </div>
+      )}
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-gray-50 border-b border-gray-200">
@@ -1080,7 +1183,7 @@ const DevicesSection: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {devices.map((device) => (
+            {visibleDevices.map((device) => (
               <tr key={device.deviceId} className="hover:bg-gray-50 transition-colors">
                 <td className="px-6 py-4 font-mono text-sm font-medium text-gray-600">{device.deviceId}</td>
                 <td className="px-6 py-4 font-medium text-gray-900">
@@ -1142,6 +1245,12 @@ const DevicesSection: React.FC = () => {
                 >
                   {selectedDevice.isRegistered ? '장치 해제' : '장치 등록'}
                 </button>
+                <button
+                  onClick={() => setDeleteDeviceId(selectedDevice.deviceId)}
+                  className="px-3 py-2 text-sm bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100"
+                >
+                  장치 삭제
+                </button>
               </div>
             </div>
             <div className="space-y-4">
@@ -1195,6 +1304,31 @@ const DevicesSection: React.FC = () => {
                   ))}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteDeviceId && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 w-full max-w-md shadow-lg">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">장치 삭제</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              이 작업은 복구 불가합니다. 실제로는 논리 삭제로 처리됩니다.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setDeleteDeviceId(null)}
+                className="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => handleDeleteDevice(deleteDeviceId)}
+                className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                삭제 확인
+              </button>
             </div>
           </div>
         </div>

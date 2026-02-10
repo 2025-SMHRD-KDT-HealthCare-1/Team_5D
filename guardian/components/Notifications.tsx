@@ -78,7 +78,8 @@ export function NotificationItem({ notification, compact = false }: Notification
 export default function Notifications() {
   const [selectedNotification, setSelectedNotification] = useState<string | null>(null);
 
-  const primaryTarget = targets[0];
+  const activeTargets = targets.filter((target) => !target.isDeleted);
+  const primaryTarget = activeTargets[0];
   const notifications = alerts
     .filter((alert) => !primaryTarget || alert.targetId === primaryTarget.targetId)
     .map((alert) => ({
